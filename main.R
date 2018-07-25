@@ -18,13 +18,7 @@ render("ABTesting.Rmd")
 # samplesStats("theta")
 # samples <- samplesSample("theta")
 # 
-# 
 # quantile(samples, c(0.10,0.90))
-# 
-# 
-# 
-# 
-# 
 # #
 # modelCheck("C:/Users/Bountour/Dropbox/R Projects/Bayesian/model_regression.txt")
 # #
