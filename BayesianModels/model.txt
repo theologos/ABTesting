@@ -5,7 +5,7 @@ theta ~ dbeta(priorA, priorB)
 priorA <- 1
 priorB <- 1
 
-#Likelifood:
+#Likelihood:
 for (i in 1:nFlips) {
 	y[i] ~ dbern(theta)
 }

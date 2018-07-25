@@ -1,6 +1,5 @@
 library(BRugs)
-#
-setwd("C:/Users/Bountour/Dropbox/R Projects/Bayesian")
+#https://jennybc.github.io/2014-05-12-ubc/ubc-r/session2.4_github.html
 library(rmarkdown)
 render("ABTesting.Rmd")
 
