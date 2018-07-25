@@ -17,7 +17,7 @@ Then define & store the parameters in a list.
 # Control & Delta
 params <- list()
 params[["cntr"]][["conversion"]] <- 0.05
-params[["delta"]] <- 0.2
+params[["delta"]] <- 0.1
 params[["ntrials"]] <- 1000
 # Test parameters
 params[["test"]][["conversion_sc1"]] <- params[["cntr"]][["conversion"]]
