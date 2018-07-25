@@ -1,0 +1,377 @@
+---
+title: "AB Testing"
+output: html_document
+---
+## Set Parameters
+In this section we present the code for setting up parameters and generating random conversion data. First load the necessary libraries. 
+
+```{r include = TRUE}
+#libraries
+library(LearnBayes)
+```
+
+Then define & store the parameters in a list.
+
+```{r include = TRUE}
+
+# Control & Delta
+params <- list()
+params[["cntr"]][["conversion"]] <- 0.05
+params[["delta"]] <- 0.2
+params[["ntrials"]] <- 1000
+# Test parameters
+params[["test"]][["conversion_sc1"]] <- params[["cntr"]][["conversion"]]
+params[["test"]][["conversion_sc2"]] <- (1 + params[["delta"]]) * params[["cntr"]][["conversion"]]
+#Sample Size Calculation
+d <- params[["delta"]]
+p_control <- params[["cntr"]][["conversion"]]
+p_test    <- params[["test"]][["conversion_sc2"]]
+#Calculate Sample Size requirement
+power <- power.prop.test(n = NULL, p1 = p_control, p2 = p_test,
+                         sig.level = 0.05,
+                         power = 0.8,
+                         alternative = c("one.sided"),
+                         strict = FALSE
+)
+params[["cntr"]][["sample"]] <- round(power$n)
+params[["test"]][["sample"]] <- round(power$n)
+#
+computations <- list()
+# Number of samples per group
+params[["cntr"]][["sample"]]
+```
+
+## Generate Random Data 
+Now we generate random conversion data using the parameters we defined above:
+
+```{r include = TRUE}
+#Set random seed
+set.seed(1)
+#Generate Samples
+ntrials <- params[["ntrials"]]
+generateSamples <- function(x){
+  sample_size <- params[["cntr"]][["sample"]]
+  #Run the Simulation
+  p <- params[["cntr"]][["conversion"]]
+  a <- sample(x=c(0,1),
+              size=sample_size,
+              replace=TRUE,
+              prob=c(1-p, p)
+  )
+  #
+  p <- params[["test"]][["conversion_sc1"]]
+  b <- sample(x=c(0,1),
+              size=sample_size,
+              replace=TRUE,
+              prob=c(1-p, p)
+              
+  )
+  #
+  p <- params[["test"]][["conversion_sc2"]]
+  c <- sample(x=c(0,1),
+              size=sample_size,
+              replace=TRUE,
+              prob=c(1-p, p)
+              
+  )
+  df <- data.frame(cntr = a, test_sc1 = b, test_sc2 = c)  
+  df$csum_cntr <- cumsum(df$cntr)
+  df$csum_test_sc1 <- cumsum(df$test_sc1)
+  df$csum_test_sc2 <- cumsum(df$test_sc2)
+  return (df)
+}
+x=1:ntrials
+data <- lapply(x, FUN=generateSamples)
+```
+
+
+
+## Sequential Approach 
+
+Sequential sampling allows the experimenter to stop the trial early if the treatment appears to be a winner. It therefore addresses the "peeking" problem associated with eager experimenters who use (abuse) traditional fixed-sample methods. The below algorithm appears in @evanmiller_sq
+
+The sequential procedure works like this:   
+1.    At the beginning of the experiment, choose a sample size $N$    
+2.    Assign subjects randomly to the treatment and control, with 50% probability each.   
+3.    Track the number of incoming successes from the treatment group. Call this number $T$   
+4.    Track the number of incoming successes from the control group. Call this number $C$   
+5.    If $T-C$ reaches $2*\sqrt{N}$, stop the test. Declare the treatment to be the winner.   
+6.    If $T+C$ reaches $N$, stop the test. Declare no winner.   
+
+The above procedure can, in some circumstances, reduce the number of observations required for a successful experiment by 50% or more. The procedure works extremely well with low conversion rates (that is, with small Bernoulli parameters). With high conversion rates, it works less well, but in those cases traditional fixed-sample methods should do you just fine.
+
+
+Now we generate random conversion data using the parameters we defined above:
+
+```{r include=FALSE}
+
+# #Function
+# dthres <- function (n) {
+#     
+#     d <- 1:n
+#     p <- dbinom(ceiling((n+d)/2), n, prob=0.5, log = FALSE)
+#     pdist <- c()
+#     for (i in 1:length(p)){
+#       pdist[i] <- sum(p[i:length(p)])
+#     }
+#     thres <- n - length(pdist[pdist < 0.05]) + 1
+#     return (thres)
+# }
+#d = sapply(succ, dthres)
+```
+
+
+```{r include=TRUE}
+N <- 2 * round(params[["cntr"]][["sample"]] * params[["cntr"]][["conversion"]])
+f <- function(df, col_test) {
+    
+    cntr <- df[, c("csum_cntr")]
+    test <- df[, col_test]
+    df_   <- cbind(df, c_tc = test + cntr, c_d = test - cntr, N=N, threshold = ceiling(2*sqrt(N)))
+    sm   <- which(df_$c_d >= df_$threshold)[1]
+}
+
+computations[["Sequential"]][["sc1"]][["decision (peeking)"]] <- sapply(data, f, col_test = "csum_test_sc1")
+computations[["Sequential"]][["sc2"]][["decision (peeking)"]] <- sapply(data, f, col_test = "csum_test_sc2")
+```
+
+Calculate Type I error and Power:
+
+```{r}
+a <- computations[["Sequential"]][["sc1"]][["decision (peeking)"]]
+TypeIError <- sum(a>0, na.rm=TRUE)/length(a)
+TypeIError
+```
+
+```{r}
+a <- computations[["Sequential"]][["sc2"]][["decision (peeking)"]]
+Power <- sum(a>0, na.rm = TRUE)/length(a)
+Power
+```
+
+Calculate how faster we can detect the effect:
+
+```{r}
+sample <- params[["cntr"]][["sample"]]
+mean(a[which(!is.na(a))] / sample)
+```
+
+
+
+## Frequentist Approach
+
+
+```{r include = TRUE}
+
+#Get the one-sided p-value for a set of binary data
+pValue <- function(df){
+  k <- nrow(df)
+  if (k <= 50) {
+    p <- 1
+  } else
+  {
+    p <- t.test(x=df[,1], y=df[,2], alternative=c("less"))$p.value
+  }
+  return (p)
+}
+
+#Calculate the p-value sample path for a sequence of binary data
+pValuePath <- function(df, colnames){
+  path <- numeric()
+  for (k in 1:nrow(df)){
+    path <- c(path, pValue(df[1:k, colnames]))
+  }
+  return (path)
+}
+
+#Calculate the p-value sample paths
+#computations[["Frequentist"]][["sc1"]][["p-values"]] <- lapply(data, FUN=pValuePath, colnames = c("cntr", "test_sc1"))
+#computations[["Frequentist"]][["sc2"]][["p-values"]] <- lapply(data, FUN=pValuePath, colnames = c("cntr", "test_sc2"))
+
+# # Decision Making (non-peeking)
+# for (i in 1:ntrials){
+#   p_values <- computations[["Frequentist"]][["sc1"]][["p-values"]][[i]]
+#   dec <- ifelse(tail((p_values), 1) <= 0.05, 1, 0)
+#   computations[["Frequentist"]][["sc1"]][["decision (no peeking)"]][[i]] <- dec
+# 
+#   p_values <- computations[["Frequentist"]][["sc2"]][["p-values"]][[i]]
+#   dec <- ifelse(tail((p_values), 1) <= 0.05, 1, 0)
+#   computations[["Frequentist"]][["sc2"]][["decision (no peeking)"]][[i]] <- dec
+# }
+# mean(computations[["Frequentist"]][["sc1"]][["decision (no peeking)"]])
+# mean(computations[["Frequentist"]][["sc2"]][["decision (no peeking)"]])
+#   
+# 
+# # Decision Making (peeking)
+# for (i in 1:ntrials){
+#   p_values <- computations[["Frequentist"]][["sc1"]][["p-values"]][[i]]
+#   dec <- which(p_values <= 0.05)[1]
+#   computations[["Frequentist"]][["sc1"]][["decision (peeking)"]][[i]] <- dec
+# 
+#   p_values <- computations[["Frequentist"]][["sc2"]][["p-values"]][[i]]
+#   dec <- which(p_values <= 0.05)[1]
+#   computations[["Frequentist"]][["sc2"]][["decision (peeking)"]][[i]] <- dec
+# }
+# a <- computations[["Frequentist"]][["sc1"]][["decision (peeking)"]]
+# sum(!is.na(a))/length(a)
+# a <- computations[["Frequentist"]][["sc2"]][["decision (peeking)"]]
+# sum(!is.na(a))/length(a)
+
+#Plot P-Value Sample Path
+#k <- 152
+#plot(p_values[[k]], type='l', xlab='Samples', ylab='P-value', ylim=c(0,0.8)); abline(h=0.05, col="red")
+
+```
+
+
+
+###Bayesian Approach 
+
+```{r}
+
+# #Bayesian Statistics
+# loss <- function(i, j, var){
+#   
+#   if (var == 'A'){
+#     loss <- max(j - i, 0)
+#   }
+#   else
+#   {
+#     loss <- max(i - j, 0)
+#   }
+#   return (loss)
+# }
+# 
+# 
+# # prior <- sample(x=c(0,1), 
+# #                 size=sample_size/3,
+# #                 replace=TRUE,
+# #                 prob=c(1-params[["cntr"]][["conversion"]], params[["cntr"]][["conversion"]])
+# # )
+# 
+# bayesianTrace <- function(df){
+#   
+#   trace   <- list()
+#   pvalues <- numeric()
+#   loss_A  <- numeric()
+#   loss_B  <- numeric()
+#   revenue_A   <- numeric()
+#   revenue_B   <- numeric()
+#   a <- df[["cntr"]] 
+#   b <- df[["test"]]
+#   for (k in 1:length(a)){
+#     if (k <= 50) {
+#       p <- 0; lossa <- 0; lossb <- 0; rev_A <- 0; rev_B <- 0;
+#     } else
+#     {
+#       beta1 <- rbeta(1000, sum(a[1:k]), length(a[1:k]), ncp = 0);
+#       beta2 <- rbeta(1000, sum(b[1:k]), length(b[1:k]), ncp = 0);
+#       
+#       p <- sum(beta1 < beta2)/length(beta1);
+#       
+#       rev_A <- sum(beta1 - beta2)/length(beta1);
+#       rev_B <- sum(beta2 - beta1)/length(beta1);
+#       
+#       lossa <- loss(beta1, beta2, 'A');
+#       lossb <- loss(beta1, beta2, 'B');
+#     }
+#     pvalues <- c(pvalues, p); loss_A <- c(loss_A, lossa); loss_B <- c(loss_B, lossb); 
+#     revenue_A <- c(revenue_A, rev_A); revenue_B <- c(revenue_B, rev_B)
+#   }
+#   trace[["pvalues"]]  <- pvalues
+#   trace[["loss_A"]]   <- loss_A
+#   trace[["loss_B"]]   <- loss_B
+#   trace[["revenue_A"]]  <- revenue_A
+#   trace[["revenue_B"]]  <- revenue_B
+#   return (trace)
+# }
+# p_values_2 <- lapply(data, FUN=bayesianTrace)
+# 
+# #Type I error (peeking)
+# error <- numeric()
+# for (i in 1:200){
+#   error <- c(error, which(p_values_2[[i]][['pvalues']] >= 0.95)[1])
+# }
+# sum(!is.na(error))/length(error)
+# 
+# # Type I error (last)
+# error <- numeric()
+# for (i in 1:200){
+#   error <- c(error, tail((p_values_2[[i]][['pvalues']]), 1))
+# }
+# sum(error <= 0.05)/length(error)
+# 
+# i=36; 
+# p_values_2[[i]][['pvalues']][6000]; mean(p_values_2[[i]][['loss_A']][6000]); mean(p_values_2[[i]][['loss_B']][6000]);
+# p_values_2[[i]][['revenue_A']][6000];p_values_2[[i]][['revenue_B']][6000]
+# 
+# 
+# i <- 183
+# lossa   <- p_values_2[[i]][['loss_A']]; 
+# lossb   <- p_values_2[[i]][['loss_B']];
+# 
+# 
+# df <- bayesianTrace(data[[152]])
+# 
+# k <- 152
+# plot()
+# 
+# 
+# 
+# 
+# y_A <- p_values_2[[k]][['loss_A']]
+# y_B <- p_values_2[[k]][['loss_B']]
+# pvalues <- p_values_2[[k]][['pvalues']]; 
+# 
+# x <- 1:length(y_A)
+# loss_A <- loess(y_A~x);
+# loss_B <- loess(y_B~x);
+# pvals <- loess(pvalues~x)
+# plot(x,y_A, ylim=c(0,1))
+# lines(predict(loss_A), col='red', lwd=2)
+# lines(predict(loss_B), col='blue', lwd=2)
+# lines(predict(pvals), col='green', lwd=2)
+# 
+# 
+# m <- which(pvalues >= 0.95)
+# df <- data.frame(y_A = y_A[m], y_B = y_B[m], pvalues = pvalues[m])
+
+```
+
+
+
+
+##References
+
+---
+references:
+- id: evanmiller_sq
+  title: Sequential AB Testing
+  URL: 'https://www.evanmiller.org/sequential-ab-testing.html'
+
+- id: varianceexplained_bayesian
+  title: Bayesian AB Testing
+  URL: 'http://varianceexplained.org/r/bayesian-ab-testing/'
+  
+- id: whitepaper
+  title: Technical WhitePaper
+  URL: 'https://cdn2.hubspot.net/hubfs/310840/VWO_SmartStats_technical_whitepaper.pdf'  
+
+- id: test
+  title: One-click science marketing
+  author:
+  - family: Fenner
+    given: Martin
+  container-title: Nature Materials
+  volume: 11
+  URL: 'http://dx.doi.org/10.1038/nmat3283'
+  DOI: 10.1038/nmat3283
+  issue: 4
+  publisher: Nature Publishing Group
+  page: 261-263
+  type: article-journal
+  issued:
+    year: 2012
+    month: 3
+---
+
