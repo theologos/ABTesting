@@ -130,10 +130,11 @@ $(document).ready(function () {
 <p>In this section we present the code for setting up parameters and generating random conversion data. First load the necessary libraries.</p>
 <pre class="r"><code>#libraries
 library(LearnBayes)</code></pre>
+<pre><code>## Warning: package 'LearnBayes' was built under R version 3.4.4</code></pre>
 <p>Then define &amp; store the parameters in a list.</p>
 <pre class="r"><code># Control &amp; Delta
 params &lt;- list()
-params[[&quot;cntr&quot;]][[&quot;conversion&quot;]] &lt;- 0.05
+params[[&quot;cntr&quot;]][[&quot;conversion&quot;]] &lt;- 0.06
 params[[&quot;delta&quot;]] &lt;- 0.1
 params[[&quot;ntrials&quot;]] &lt;- 1000
 # Test parameters
@@ -156,7 +157,7 @@ params[[&quot;test&quot;]][[&quot;sample&quot;]] &lt;- round(power$n)
 computations &lt;- list()
 # Number of samples per group
 params[[&quot;cntr&quot;]][[&quot;sample&quot;]]</code></pre>
-<pre><code>## [1] 24602</code></pre>
+<pre><code>## [1] 20275</code></pre>
 </div>
 <div id="generate-random-data" class="section level2">
 <h2>Generate Random Data</h2>
@@ -226,15 +227,15 @@ computations[[&quot;Sequential&quot;]][[&quot;sc2&quot;]][[&quot;decision (peeki
 <pre class="r"><code>a &lt;- computations[[&quot;Sequential&quot;]][[&quot;sc1&quot;]][[&quot;decision (peeking)&quot;]]
 TypeIError &lt;- sum(a&gt;0, na.rm=TRUE)/length(a)
 TypeIError</code></pre>
-<pre><code>## [1] 0.045</code></pre>
+<pre><code>## [1] 0.033</code></pre>
 <pre class="r"><code>a &lt;- computations[[&quot;Sequential&quot;]][[&quot;sc2&quot;]][[&quot;decision (peeking)&quot;]]
 Power &lt;- sum(a&gt;0, na.rm = TRUE)/length(a)
 Power</code></pre>
-<pre><code>## [1] 0.753</code></pre>
+<pre><code>## [1] 0.774</code></pre>
 <p>Calculate how faster we can detect the effect:</p>
 <pre class="r"><code>sample &lt;- params[[&quot;cntr&quot;]][[&quot;sample&quot;]]
 mean(a[which(!is.na(a))] / sample)</code></pre>
-<pre><code>## [1] 0.6449925</code></pre>
+<pre><code>## [1] 0.6452416</code></pre>
 </div>
 <div id="frequentist-approach" class="section level2">
 <h2>Frequentist Approach</h2>
