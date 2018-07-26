@@ -130,14 +130,13 @@ $(document).ready(function () {
 <p>In this section we present the code for setting up parameters and generating random conversion data. First load the necessary libraries.</p>
 <pre class="r"><code>#libraries
 library(LearnBayes)</code></pre>
-<pre><code>## Warning: package 'LearnBayes' was built under R version 3.4.4</code></pre>
-<p>Then define &amp; store the parameters in a list.</p>
+<p>Then define &amp; store the parameters in a list. We define the (i) base conversion, (ii) delta, and (iii) number of trials.</p>
 <pre class="r"><code># Control &amp; Delta
 params &lt;- list()
 params[[&quot;cntr&quot;]][[&quot;conversion&quot;]] &lt;- 0.06
 params[[&quot;delta&quot;]] &lt;- 0.1
-params[[&quot;ntrials&quot;]] &lt;- 1000
-# Test parameters
+params[[&quot;ntrials&quot;]] &lt;- 1000</code></pre>
+<pre class="r"><code># Test parameters
 params[[&quot;test&quot;]][[&quot;conversion_sc1&quot;]] &lt;- params[[&quot;cntr&quot;]][[&quot;conversion&quot;]]
 params[[&quot;test&quot;]][[&quot;conversion_sc2&quot;]] &lt;- (1 + params[[&quot;delta&quot;]]) * params[[&quot;cntr&quot;]][[&quot;conversion&quot;]]
 #Sample Size Calculation

@@ -1,5 +1,7 @@
 library(BRugs)
 library(rmarkdown)
+#https://rawgit.com/theologos/ABTesting/master/ABTesting.html
+#https://www.michaelcrump.net/how-to-run-html-files-in-your-browser-from-github/
 #https://jennybc.github.io/2014-05-12-ubc/ubc-r/session2.4_github.html
 render("ABTesting.Rmd")
 ##

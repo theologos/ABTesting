@@ -10,7 +10,7 @@ In this section we present the code for setting up parameters and generating ran
 library(LearnBayes)
 ```
 
-Then define & store the parameters in a list.
+Then define & store the parameters in a list. We define the (i) base conversion, (ii) delta, and (iii) number of trials.
 
 ```{r include = TRUE}
 
@@ -19,6 +19,11 @@ params <- list()
 params[["cntr"]][["conversion"]] <- 0.06
 params[["delta"]] <- 0.1
 params[["ntrials"]] <- 1000
+```
+
+
+
+```{r include = TRUE}
 # Test parameters
 params[["test"]][["conversion_sc1"]] <- params[["cntr"]][["conversion"]]
 params[["test"]][["conversion_sc2"]] <- (1 + params[["delta"]]) * params[["cntr"]][["conversion"]]
