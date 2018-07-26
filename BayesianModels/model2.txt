@@ -1,0 +1,14 @@
+model {
+
+#Prior distribution:
+theta1 ~ dbeta(priorA, priorB)
+theta2 ~ dbeta(priorA, priorB)
+priorA <- 50
+priorB <- 50
+
+#Likelihood:
+for (i in 1:nFlips) {
+	y1[i] ~ dbern(theta1)
+	y2[i] ~ dbern(theta2)
+}
+}

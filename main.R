@@ -77,6 +77,31 @@ computations[["Bayesian"]][["test_sc1"]][["data-thetas"]] <- lapply(data, f, "te
 computations[["Bayesian"]][["test_sc2"]][["data-thetas"]] <- lapply(data, f, "test_sc2")
 
 
+
+
+a<-computations[["Sequential"]][["sc1"]][["decision (peeking)"]]; which(!is.na(a))
+
+i <- 163
+modelCheck("C:/Users/Bountour/Dropbox/R Projects/ABTesting/BayesianModels/model2.txt")
+y1 <- data[[i]]$cntr; 
+y2 <- data[[i]]$test_sc1;
+dataList <- list(nFlips=length(y1), y1 = y1, y2=y2)
+
+bugsData(dataList)
+modelData(bugsData(dataList))
+modelCompile()
+modelGenInits()
+samplesSet("theta1")
+samplesSet("theta2")
+modelUpdate(10000)
+samples1 <- samplesSample("theta1")
+samples2 <- samplesSample("theta2")
+sum(samples1 < samples2)/length(samples1)
+
+
+
+
+
 #b <- f(data[[i]], "test_sc1")
 #c <- f(data[[i]], "test_sc2")
 #sum(a < b)/length(a)
